@@ -1,0 +1,20 @@
+1.安装依赖包
+$ sudo yum install -y yum-utils \
+  device-mapper-persistent-data \
+  lvm2
+  
+2.安装稳定库
+$ sudo yum-config-manager \
+    --add-repo \
+    https://download.docker.com/linux/centos/docker-ce.repo
+
+3.安装docker社区版
+$ sudo yum install docker-ce
+
+
+4.启动docker
+$ sudo systemctl start docker
+
+
+5.验证
+$ sudo docker run hello-world
