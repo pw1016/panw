@@ -6,18 +6,19 @@ import jieba
 from gensim import corpora, models, similarities
 from gensim.corpora import Dictionary
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-"""
-激活日志
-Gensim使用Python标准的日志类来记录不同优先级的各种事件
-"""
+# logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+# """
+# 激活日志
+# Gensim使用Python标准的日志类来记录不同优先级的各种事件
+# """
 
-dict_file = 'D:/dict.txt'
+dictionary_file = 'D:/dictionary.txt'
 corpus_file = 'D:/corpus.mm'
-stop_dic_file = 'D:/stop_words.dic'
+stop_dict_file = 'D:/stop_words.dic'
+user_dict_file = 'D:/user_dict.dic'
 
 
-def check(doc):
+def check(doc, tfidfweight=0.7, lsiweight=0.3):
     """
     检查文档相似性
     :param text: 要检查的文档
@@ -26,25 +27,22 @@ def check(doc):
     if doc is None:
         logging.error("待检测文档为空")
         raise RuntimeError("待检测文档为空")
-    if not os.path.exists(corpus_file):
-        logging.warning("语料库不存在")
-        return
-    # dictionary = corpora.Dictionary.load_from_text(dict_file)
-    # 每一篇文档对应的稀疏向量（这里是bow向量）
-    # corpus = [dictionary.doc2bow(doc) for doc in corpora_documents]
 
-    corpus = corpora.MmCorpus(corpus_file)
-    dictionary = Dictionary.from_corpus(corpus);
+    # 加载语料库
+    corpus = list(corpora.MmCorpus(corpus_file))
+    dictionary = Dictionary.load_from_text(dictionary_file)
+
+    # 语料库转成TF-IDF模型
     tfidf_model = models.TfidfModel(corpus)
+    corpus_tfidf = tfidf_model[corpus]
     '''
     TF-IDF是一种统计方法，用以评估一字词对于一个文件集或一个语料库中的其中一份文件的重要程度。
     字词的重要性随着它在文件中出现的次数成正比增加，但同时会随着它在语料库中出现的频率成反比下降
     '''
-    corpus_tfidf = tfidf_model[corpus]
 
-    # 处理测试文本
+    # 处理要检测的文本
     text_corpus = dictionary.doc2bow(cut(doc))  # 转换成bow向量
-    text_corpus_tfidf = tfidf_model[text_corpus]  # 计算tfidf值
+    text_corpus_tfidf = tfidf_model[text_corpus]  # 计算在语料库中的TF-IDF值
 
     """
     similarities.MatrixSimilarity类仅仅适合能将所有的向量都在内存中的情况。
@@ -55,36 +53,38 @@ def check(doc):
     因此它也是比较快的，虽然看起来更加复杂了。
     """
 
+    # TF-IDF模型建立语料库索引
     similarity_tfidf = similarities.Similarity(None, corpus_tfidf, num_features=600, num_best=5)
+    # 检测相似度
     result1 = similarity_tfidf[text_corpus_tfidf]
-    print(result1)
 
+    # 语料库转成LSI模型
     lsi_model = models.LsiModel(corpus_tfidf)
     corpus_lsi = lsi_model[corpus_tfidf]
+    """
+    如果两个单词之间有很强的相关性，那么当一个单词出现时，往往意味着另一个单词也应该出现(同义词)；
+    反之，如果查询语句或者文档中的某个单词和其他单词的相关性都不大，那么这个词很可能表示的是另外
+    一个意思(比如在讨论互联网的文章中，Apple更可能指的是Apple公司，而不是水果)。
+    LSA(LSI)使用SVD来对单词-文档矩阵进行分解。SVD可以看作是从单词-文档矩阵中发现不相关的索引变量(因子)，
+    将原来的数据映射到语义空间内。在单词-文档矩阵中不相似的两个文档，可能在语义空间内比较相似。
+    """
 
-    similarity_lsi = similarities.Similarity(None, corpus_lsi, num_features=400, num_best=2)
+    # LSI模型建立语料库索引
+    similarity_lsi = similarities.Similarity(None, corpus_lsi, num_features=400, num_best=5)
+    # 检测相似度
     text_corpus_lsi = lsi_model[text_corpus_tfidf]
     result2 = similarity_lsi[text_corpus_lsi]
-    print(result2)
+    return result1, result2
 
 
 def train(doc):
     """
-    训练语料库
-    如果语料库文件不存在，则新增；否则追加当前文档到语料库
+    增量训练一个文档到语料库
     :param doc: 需要训练的文档
     :return:
     """
     # 分词
     terms = cut(doc)
-
-    # 去停止词
-    stoplist = load_stop_words(stop_dic_file)
-    texts = [term for term in terms if term not in stoplist]
-
-    # texts = [[word for word in document.lower().split() if word not in stoplist] for document in documents]
-    texts = [texts]
-    print(texts)
 
     # # 去掉只出现一次的词
     # frequency = defaultdict(int)
@@ -93,57 +93,51 @@ def train(doc):
     #         frequency[token] += 1
     # texts = [[token for token in text if frequency[token] > 1] for text in texts]
 
-    if os.path.exists(corpus_file):
-        # dictionary = corpora.Dictionary.load_from_text(dict_file)
-        mmcorpus = corpora.MmCorpus(corpus_file)
-        corpus = list(mmcorpus)
-        dictionary = Dictionary.from_corpus(corpus)
+    if os.path.exists(dictionary_file) and os.path.exists(corpus_file):
+        dictionary = Dictionary.load_from_text(dictionary_file)
+        dictionary.add_documents([terms])
+        corpus = list(corpora.MmCorpus(corpus_file))
+        # 计算文档对应的稀疏向量（这里是bow向量）并增加到语料库
         corpus.append(dictionary.doc2bow(terms))
     else:
+        texts = [terms]
         dictionary = corpora.Dictionary(texts)
+        # 每一篇文档对应的稀疏向量（这里是bow向量）
         corpus = [dictionary.doc2bow(text) for text in texts]
     corpora.MmCorpus.serialize(corpus_file, corpus)
-    print(list(corpus))
+    dictionary.save_as_text(dictionary_file)
 
 
+def train_from_dir(dir):
+    pass
 
 
-def train1(doc):
+def cut(text):
+    if text is None:
+        raise RuntimeError("文档为空")
+    # 加载自定义词典
+    if os.path.exists(user_dict_file):
+        jieba.load_userdict(user_dict_file)
     # 分词
-    documents = cut(doc)
-
+    terms = list(jieba.cut(text))
+    # return terms
     # 去停止词
-    stoplist = load_stop_words(stop_dic_file)
-    texts = [[word for word in document.lower().split() if word not in stoplist] for document in documents]
-
-    # 去掉只出现一次的词
-    frequency = defaultdict(int)
-    for text in texts:
-        for token in text:
-            frequency[token] += 1
-    texts = [[token for token in text if frequency[token] > 1] for text in texts]
-
-    dictionary = corpora.Dictionary(texts)
-    dictionary.save(dict_file)
+    stoplist = load_stop_words(stop_dict_file)
+    return [term for term in terms if term not in stoplist]
 
 
 def load_stop_words(file):
     try:
-        with open(file) as f:
-            return set([line.strip().lower() for line in f.readlines()])
+        with open(file, encoding='UTF-8') as f:
+            return set([line.strip() for line in f.readlines()])
     except Exception as e:
         logging.error(e)
         return []
 
 
-def cut(line):
-    terms = list(jieba.cut(line))
-    return terms
-
-
 if __name__ == '__main__':
     raw_documents = [
-        '0南京江心洲污泥偷排或处置不当而造成的污染问题，不断被媒体曝光',
+        '0据报道，南京江心洲污泥偷排或处置不当而造成的污染问题，不断被媒体曝光，谢谢大家',
         '1面对美国金融危机冲击与国内经济增速下滑形势，中国政府在2008年11月初快速推出“4万亿”投资十项措施',
         '2全国大面积出现的雾霾，使解决我国环境质量恶化问题的紧迫性得到全社会的广泛关注',
         '3大约是1962年的夏天吧，潘文突然出现在我们居住的安宁巷中，她旁边走着40号王孃孃家的大儿子，一看就知道，他们是一对恋人。那时候，潘文梳着一条长长的独辫',
@@ -158,10 +152,18 @@ if __name__ == '__main__':
         '12国防部网站消息，3月8日凌晨，马来西亚航空公司MH370航班起飞后与地面失去联系，西安卫星测控中心在第一时间启动应急机制，配合地面搜救人员开展对失联航班的搜索救援行动',
         '13新华社昆明3月2日电，记者从昆明市政府新闻办获悉，昆明“3·01”事件事发现场证据表明，这是一起由新疆分裂势力一手策划组织的严重暴力恐怖事件',
         '14在即将召开的全国“两会”上，中国政府将提出2014年GDP增长7.5%左右、CPI通胀率控制在3.5%的目标',
-        '15中共中央总书记、国家主席、中央军委主席习近平看望出席全国政协十二届二次会议的委员并参加分组讨论时强调，团结稳定是福，分裂动乱是祸。全国各族人民都要珍惜民族大团结的政治局面，都要坚决反对一切危害各民族大团结的言行'
+        '15中共中央总书记、国家主席、中央军委主席习近平看望出席全国政协十二届二次会议的委员并参加分组讨论时强调，团结稳定是福，分裂动乱是祸。全国各族人民都要珍惜民族大团结的政治局面，都要坚决反对一切危害各民族大团结的言行',
+        '16中共中央总书记、国家主席、中央军委主席习近平看望出席全国政协十二届二次会议的委员并参加分组讨论时强调，团结稳定是福，分裂动乱是祸。全国各族人民都要珍惜民族大团结的政治局面，都要坚决反对一切危害各民族大团结的言行'
     ]
 
+    # for item_text in raw_documents:
+    #     train(item_text)
 
-    for item_text in raw_documents:
-        train(item_text)
-    # check("南京江心洲污泥偷排”等污泥偷排或处置不当而造成的污染问题，不断被媒体曝光")
+
+    # corpora_documents = []
+    # for item_text in raw_documents:
+    #     item_seg = cut(item_text)
+    #     corpora_documents.append(item_seg)
+    #
+    result = check("环境问题，经常曝光在媒体上")
+    print(result)
