@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v-bind="http://www.w3.org/1999/xhtml" xmlns:v-on="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@0.12.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
+    <title>Title</title>
+
+</head>
+<body>
+
+<div id="app">
+    {{ message }}
+</div>
+
+<div id="app-2">
+    <span v-bind:title='message'>
+        鼠标悬停几秒钟查看此处动态绑定的提示信息！
+    </span>
+</div>
+
+<div id="app-3">
+    <p v-if="seen">现在你看到我了</p>
+</div>
+
+<div id="app-4">
+    <ol>
+        <li v-for="todo in todos">
+            {{ todo.text }}
+        </li>
+    </ol>
+</div>
+
+<div id="app-5">
+    <p>{{ message }}</p>
+    <button v-on:click="reverseMessage">逆转消息</button>
+</div>
+
+<div id="app-6">
+    <p>{{ value }}</p>
+    <input v-model="value">
+</div>
+
+<div id="app-7">
+    <ol>
+        <todo-item v-for="item in groceryList" v-bind:todo="item">
+        </todo-item>
+    </ol>
+</div>
+
+
+=========================================================================
+
+
+<div id="watch-example">
+    Ask a yes/no question:
+    <input v-model="question"/>
+    <p>{{answer}}</p>
+</div>
+
+<div id="todo-list-example">
+    <input
+            v-model="newTodoText"
+            v-on:keyup.enter="addNewTodo"
+            placeholder="Add a todo"
+    >
+    <ul>
+        <li
+                is="todo-item"
+                v-for="(todo, index) in todos"
+                v-bind:key="todo.id"
+                v-bind:title="todo.title"
+                v-on:remove="todos.splice(index, 1)"
+        ></li>
+    </ul>
+</div>
+
+
+==========================================================================
+
+<div id="example-2">
+    <!-- `greet` 是在下面定义的方法名 -->
+    <button v-on:click="change">add 1</button>
+    <p>The button above has been clicked {{ counter }} times.</p>
+</div>
+
+
+<div id='example-3'>
+    <input type="checkbox" id="1" value="1" v-model="checkedNames">
+    <label for="1">1</label>
+    <input type="checkbox" id="2" value="2" v-model="checkedNames">
+    <label for="2">2</label>
+    <input type="checkbox" id="3" value="3" v-model="checkedNames">
+    <label for="3">3</label>
+    <br>
+    <span>Checked names: {{ checkedNames }}</span>
+</div>
+
+<div id='example-4'>
+    <input type="radio" id="y" value="yes" v-model="picked">
+    <label for="y">yes</label>
+    <input type="radio" id="n" value="no" v-model="picked">
+    <label for="n">no</label>
+    <br>
+    <span>Picked: {{ picked }}</span>
+</div>
+
+<div id="example-5">
+    <select v-model="selected">
+        <option value="" selected>请选择</option>
+        <option value="a">A</option>
+        <option value="b">B</option>
+        <option value="c">C</option>
+    </select>
+    <span>Selected: {{ selected }}</span>
+</div>
+
+<div id="example-6">
+    <select v-model="selected" multiple>
+        <option value="a">A</option>
+        <option value="b">B</option>
+        <option value="c">C</option>
+    </select>
+    <span>Selected: {{ selected }}</span>
+</div>
+
+
+<div id="example-7">
+    <select v-model="selected" >
+        <option v-for="option in options" v-bind:value="option.value">{{option.text}}</option>
+    </select>
+    <span>Selected: {{ selected }}</span>
+</div>
+
+============================================================================
+
+<div id="counter-event-example">
+    <p>父：{{total}}</p>
+    <button-counter v-on:increment="incrementTotal"></button-counter>
+    <button-counter v-on:increment="incrementTotal"></button-counter>
+</div>
+
+</body>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            message: 'Hello Vue.js!'
+        }
+    });
+
+    var app2 = new Vue({
+        el: '#app-2',
+        data: {
+            message: '页面加载于 ' + new Date().toLocaleString()
+        }
+    });
+
+    var app3 = new Vue({
+        el: '#app-3',
+        data: {
+            seen: true
+        }
+    });
+
+    var app4 = new Vue({
+        el: '#app-4',
+        data: {
+            todos: [
+                {'text': 'python'},
+                {'text': 'Vue.js'},
+                {'text': 'div + css'}
+            ]
+        }
+    });
+
+    var app5 = new Vue({
+        el: '#app-5',
+        data: {
+            message: 'Hello, Vue.js'
+        },
+        methods: {
+            reverseMessage: function () {
+                this.message = this.message.split('').reverse().join('')
+            }
+        }
+    });
+
+    var app6 = new Vue({
+        el: '#app-6',
+        data: {
+            value: '这是初始化值'
+        }
+    });
+
+    /////////////////////////////////
+
+    Vue.component('todo-item', {
+        props: ['todo'],
+        template: '<li>{{ todo.text }}</li>'
+    });
+
+    var app7 = new Vue({
+        el: '#app-7',
+        data: {
+            groceryList: [
+                {text: '蔬菜'},
+                {text: '奶酪'},
+                {text: '随便其它什么人吃的东西'}
+            ]
+        }
+    });
+
+    new Vue({
+        el: '#watch-example',
+        data: {
+            question: '',
+            answer: 'I cannot give you an answer until you ask a question!'
+        },
+        watch: {
+            question: function (newQuestion) {
+                this.question = newQuestion;
+                this.getAnswer()
+            }
+        },
+        methods: {
+            getAnswer: _.debounce(
+                function () {
+                    if (this.question.indexOf('?') === -1) {
+                        this.answer = 'Questions usually contain a question mark. ;-)';
+                        return
+                    }
+                    this.answer = 'Thinking...';
+                    var vm = this;
+                    axios.get('https://yesno.wtf/api')
+                        .then(function (response) {
+                            vm.answer = _.capitalize(response.data.answer)
+                        })
+                        .catch(function (error) {
+                            vm.answer = 'Error! Could not reach the API. ' + error
+                        })
+                },
+                // 这是我们为判定用户停止输入等待的毫秒数
+                500
+            )
+        }
+    });
+
+
+
+    Vue.component('todo-item', {
+        template: '<li>{{ title }}<button v-on:click="$emit(\'remove\')">X</button></li>',
+        props: ['title']
+    });
+
+    new Vue({
+        el: '#todo-list-example',
+        data: {
+            newTodoText: '',
+            todos: [
+                {
+                    id: 1,
+                    title: 'Do the dishes',
+                },
+                {
+                    id: 2,
+                    title: 'Take out the trash',
+                },
+                {
+                    id: 3,
+                    title: 'Mow the lawn'
+                }
+            ],
+            nextTodoId: 4
+        },
+        methods: {
+            addNewTodo: function () {
+                this.todos.push({
+                    id: this.nextTodoId++,
+                    title: this.newTodoText
+                })
+                this.newTodoText = ''
+            }
+        }
+    });
+
+    new Vue({
+        el: '#example-2',
+        data: {
+            counter: 0
+        },
+        // 在 `methods` 对象中定义方法
+        methods: {
+            change: function (event) {
+                this.counter++;
+                console.log(event.target.tagName);
+            }
+        }
+    });
+
+    new Vue({
+        el: '#example-3',
+        data: {
+            checkedNames: ['1','3']
+        }
+    });
+
+    new Vue({
+        el: '#example-4',
+        data: {
+            picked: ''
+        }
+    });
+
+    new Vue({
+        el: '#example-5',
+        data: {
+            selected: ''
+        }
+    });
+
+    new Vue({
+        el: '#example-6',
+        data: {
+            selected: []
+        }
+    });
+
+    new Vue({
+        el: '#example-7',
+        data: {
+            selected: '',
+            options:[
+                {'value': 1, text: '选项1'},
+                {'value': 2, text: '选项2'}
+            ]
+        }
+    });
+
+
+    Vue.component('button-counter',{
+        template: '<div><label>子组件：</label><button v-on:click="incrementCounter">{{counter}}</button></div>',
+        data: function () {
+            return {
+                counter: 0
+            }
+        },
+        methods: {
+            incrementCounter: function () {
+                this.counter++;
+                this.$emit('increment');
+            }
+        }
+    });
+
+    new Vue({
+        el: '#counter-event-example',
+        data:{
+            total: 0
+        },
+        methods:{
+            incrementTotal:function () {
+                this.total++
+            }
+        }
+    });
+
+</script>
+</html>
